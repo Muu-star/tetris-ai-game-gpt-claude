@@ -847,11 +847,13 @@ export const TetrisRenderer: React.FC = () => {
           return prev;
         }
 
+        // RESTART アクションはゲームオーバー中でもプレイ中でも可能
+        if (action === 'RESTART') {
+          return createInitialGameState();
+        }
+
         if (prev.gameOver) {
-          // GAME OVER 中は RESTART でリスタートのみ
-          if (action === 'RESTART') {
-            return createInitialGameState();
-          }
+          // GAME OVER 中は他の操作を無視
           return prev;
         }
 
