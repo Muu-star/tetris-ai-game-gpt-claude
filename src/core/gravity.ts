@@ -36,7 +36,8 @@ export interface GravityState {
 // スポーン位置: 10列幅のうち中央寄りになるように X=3 を採用。
 // PPT系の「列3に4x4枠の左上」がほぼ標準。
 export const SPAWN_X = 3;
-export const SPAWN_Y = 0;
+// Y=18: 可視エリア(Y=20~39)のすぐ上でスポーン（ぷよぷよテトリス2仕様）
+export const SPAWN_Y = 18;
 
 // ---------- フィールド生成・基本ユーティリティ ----------
 

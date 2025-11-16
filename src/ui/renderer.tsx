@@ -438,6 +438,26 @@ function tickGameState(
   return nextState;
 }
 
+// HEX色をRGBA形式に変換するヘルパー関数
+function hexToRgba(hex: string, alpha: number): string {
+  // #RGB または #RRGGBB 形式をサポート
+  let r: number, g: number, b: number;
+
+  if (hex.length === 4) {
+    // #RGB 形式
+    r = parseInt(hex[1] + hex[1], 16);
+    g = parseInt(hex[2] + hex[2], 16);
+    b = parseInt(hex[3] + hex[3], 16);
+  } else {
+    // #RRGGBB 形式
+    r = parseInt(hex.slice(1, 3), 16);
+    g = parseInt(hex.slice(3, 5), 16);
+    b = parseInt(hex.slice(5, 7), 16);
+  }
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // ピースタイプごとの色定義
 const PIECE_COLORS: Record<PieceType, string> = {
   I: "#0ff", // シアン
@@ -533,6 +553,26 @@ export const TetrisRenderer: React.FC = () => {
       );
       for (const c of cells) {
         drawCell(c.x, c.y, "#555");
+      }
+    }
+
+    // プレイヤーゴースト（ハードドロップ着地位置）
+    let ghostPiece: ActivePiece | null = null;
+    if (active) {
+      const { piece: dropped } = hardDrop(field, active);
+      ghostPiece = dropped;
+    }
+
+    if (ghostPiece && active) {
+      const cells = getPieceCells(
+        ghostPiece.type,
+        ghostPiece.rotation,
+        ghostPiece.x,
+        ghostPiece.y
+      );
+      const ghostColor = hexToRgba(PIECE_COLORS[ghostPiece.type], 0.3);
+      for (const c of cells) {
+        drawCell(c.x, c.y, ghostColor);
       }
     }
 
