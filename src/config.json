@@ -22,5 +22,15 @@
     "tdMountainousWeight": 1.2,
     "tdHoneyWeight": 1.0,
     "tdStrayWeight": 0.8
+  },
+  "keyBindings": {
+    "MOVE_LEFT": ["ArrowLeft"],
+    "MOVE_RIGHT": ["ArrowRight"],
+    "SOFT_DROP": ["ArrowDown"],
+    "HARD_DROP": ["Space"],
+    "ROTATE_CW": ["ArrowUp", "KeyX"],
+    "ROTATE_CCW": ["KeyZ"],
+    "HOLD": ["KeyC"],
+    "RESTART": ["KeyR"]
   }
 }

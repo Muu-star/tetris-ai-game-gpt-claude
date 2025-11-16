@@ -1,5 +1,6 @@
 // src/config.ts
 import rawConfig from "./config.json";
+import type { KeyBindings } from "./core/keyBindings";
 
 export interface GameConfig {
   gravityCPS: number;
@@ -19,6 +20,19 @@ export interface GameConfig {
   aiTimeLimitMsPerMove: number;
 
   preferredWellColumn: number; // 0=左端, FIELD_WIDTH-1=右端
+
+  ai?: {
+    aggregateHeightWeight: number;
+    holeWeight: number;
+    bumpinessWeight: number;
+    wellWeight: number;
+    openingTdBonusWeight: number;
+    tdMountainousWeight: number;
+    tdHoneyWeight: number;
+    tdStrayWeight: number;
+  };
+
+  keyBindings?: KeyBindings;
 
 }
 

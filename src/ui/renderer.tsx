@@ -35,6 +35,12 @@ import type {
   AiSearchConfig,
   AiSearchDebugInfo
 } from "../ai/types";
+import type { KeyBindings } from "../core/keyBindings";
+import {
+  loadKeyBindings,
+  getActionForKey,
+} from "../core/keyBindings";
+import { KeyConfigUI } from "./KeyConfigUI";
 
 
 // なぜ: UIは「入力・時間進行・描画＋HUD＋AIゴースト描画」に集中させ、
@@ -471,6 +477,8 @@ const PIECE_COLORS: Record<PieceType, string> = {
 
 export const TetrisRenderer: React.FC = () => {
   const [state, setState] = useState<GameState>(() => createInitialGameState());
+  const [keyBindings, setKeyBindings] = useState<KeyBindings>(() => loadKeyBindings());
+  const [showKeyConfig, setShowKeyConfig] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const holdCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const nextCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -800,30 +808,39 @@ export const TetrisRenderer: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ESCキーで設定画面を開閉
+      if (e.code === "Escape") {
+        e.preventDefault();
+        setShowKeyConfig(prev => !prev);
+        return;
+      }
+
+      // 設定画面表示中はゲーム入力を無視
+      if (showKeyConfig) {
+        return;
+      }
+
+      // キーアクションを取得
+      const action = getActionForKey(e.code, keyBindings);
+
       // 矢印・Space系はブラウザスクロールを防止
-      if (
-        e.code === "ArrowLeft" ||
-        e.code === "ArrowRight" ||
-        e.code === "ArrowUp" ||
-        e.code === "ArrowDown" ||
-        e.code === "Space"
-      ) {
+      if (action || e.code === "Escape") {
         e.preventDefault();
       }
 
       // 長押し状態の更新
-      if (e.code === "ArrowLeft") {
+      if (action === 'MOVE_LEFT') {
         inputRef.current.leftHeld = true;
-      } else if (e.code === "ArrowRight") {
+      } else if (action === 'MOVE_RIGHT') {
         inputRef.current.rightHeld = true;
-      } else if (e.code === "ArrowDown") {
+      } else if (action === 'SOFT_DROP') {
         inputRef.current.softDropHeld = true;
       }
 
       const ignoreRepeatForMove =
-        e.code === "ArrowLeft" ||
-        e.code === "ArrowRight" ||
-        e.code === "ArrowDown";
+        action === 'MOVE_LEFT' ||
+        action === 'MOVE_RIGHT' ||
+        action === 'SOFT_DROP';
 
       setState((prev) => {
         if (ignoreRepeatForMove && e.repeat) {
@@ -831,8 +848,8 @@ export const TetrisRenderer: React.FC = () => {
         }
 
         if (prev.gameOver) {
-          // GAME OVER 中は Space でリスタートのみ
-          if (e.code === "Space") {
+          // GAME OVER 中は RESTART でリスタートのみ
+          if (action === 'RESTART') {
             return createInitialGameState();
           }
           return prev;
@@ -853,34 +870,33 @@ export const TetrisRenderer: React.FC = () => {
         let newCurrentPieceType: PieceType = currentPieceType;
         const eventTimeMs = prev.elapsedMs;
 
-        switch (e.code) {
-          case "ArrowLeft": {
+        switch (action) {
+          case 'MOVE_LEFT': {
             newActive = tryMoveLeft(newField, active);
             lastMoveWasRotate = false;
             break;
           }
-          case "ArrowRight": {
+          case 'MOVE_RIGHT': {
             newActive = tryMoveRight(newField, active);
             lastMoveWasRotate = false;
             break;
           }
-          case "ArrowDown": {
+          case 'SOFT_DROP': {
             newActive = trySoftDrop(newField, active);
             lastMoveWasRotate = false;
             break;
           }
-          case "KeyZ": {
+          case 'ROTATE_CCW': {
             newActive = tryRotate(newField, active, "ccw");
             lastMoveWasRotate = true;
             break;
           }
-          case "KeyX":
-          case "ArrowUp": {
+          case 'ROTATE_CW': {
             newActive = tryRotate(newField, active, "cw");
             lastMoveWasRotate = true;
             break;
           }
-          case "KeyC": {
+          case 'HOLD': {
             // Hold（1手1回）
             if (!pieceQueue.canHold) {
               return prev;
@@ -927,7 +943,7 @@ export const TetrisRenderer: React.FC = () => {
             // Hold でミノが変わったので AI 再計算
             return recomputeAi(nextState);
           }
-          case "Space": {
+          case 'HARD_DROP': {
             // ハードドロップ → 即ロック＋ライン消去＋T-Spin＋KPI → 次ミノ
             const { piece: dropped } = hardDrop(newField, active);
 
@@ -1037,21 +1053,22 @@ export const TetrisRenderer: React.FC = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (
-        e.code === "ArrowLeft" ||
-        e.code === "ArrowRight" ||
-        e.code === "ArrowUp" ||
-        e.code === "ArrowDown" ||
-        e.code === "Space"
-      ) {
+      // 設定画面表示中はゲーム入力を無視
+      if (showKeyConfig) {
+        return;
+      }
+
+      const action = getActionForKey(e.code, keyBindings);
+
+      if (action) {
         e.preventDefault();
       }
 
-      if (e.code === "ArrowLeft") {
+      if (action === 'MOVE_LEFT') {
         inputRef.current.leftHeld = false;
-      } else if (e.code === "ArrowRight") {
+      } else if (action === 'MOVE_RIGHT') {
         inputRef.current.rightHeld = false;
-      } else if (e.code === "ArrowDown") {
+      } else if (action === 'SOFT_DROP') {
         inputRef.current.softDropHeld = false;
       }
     };
@@ -1062,7 +1079,7 @@ export const TetrisRenderer: React.FC = () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [keyBindings, showKeyConfig]);
 
   // ---------- 重力＋ソフトドロップ＋DAS/ARR＋ロック遅延＋T-Spin＋KPI＋7-bag（60fpsループ） ----------
 
@@ -1174,8 +1191,33 @@ export const TetrisRenderer: React.FC = () => {
                 .join(" | ")
             : "n/a"}
         </div>
-        <div>GAME OVER 中に Space でリスタート</div>
+        <div>GAME OVER 中にリスタートキーでリスタート</div>
+        <div>
+          <button
+            onClick={() => setShowKeyConfig(true)}
+            style={{
+              marginTop: '10px',
+              padding: '8px 16px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              backgroundColor: '#4a90e2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px'
+            }}
+          >
+            キー設定 (ESC)
+          </button>
+        </div>
       </div>
+
+      {showKeyConfig && (
+        <KeyConfigUI
+          bindings={keyBindings}
+          onClose={() => setShowKeyConfig(false)}
+          onSave={(newBindings) => setKeyBindings(newBindings)}
+        />
+      )}
     </div>
   );
 };
