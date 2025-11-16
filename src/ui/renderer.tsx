@@ -843,75 +843,166 @@ export const TetrisRenderer: React.FC = () => {
   const holdPiece = state.pieceQueue.hold;
   const nextPieces = state.pieceQueue.queue.slice(0, NEXT_PREVIEW_COUNT);
 
-  return (
-    <div>
+  // NEXTテトリミノを描画するヘルパー関数
+  const renderNextPiece = (pieceType: PieceType, index: number) => {
+    const miniCellSize = 16;
+    const gridSize = 4;
+    const canvasSize = gridSize * miniCellSize;
+
+    return (
       <canvas
-        ref={canvasRef}
+        key={index}
+        width={canvasSize}
+        height={canvasSize}
         style={{
-          border: "2px solid #666",
-          backgroundColor: "#000"
+          border: "1px solid #444",
+          backgroundColor: "#111",
+          marginBottom: "8px"
         }}
-        width={width}
-        height={height}
+        ref={(canvas) => {
+          if (!canvas) return;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+
+          // 背景クリア
+          ctx.fillStyle = "#111";
+          ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+          // グリッド線
+          ctx.strokeStyle = "#222";
+          ctx.lineWidth = 1;
+          for (let y = 0; y < gridSize; y++) {
+            for (let x = 0; x < gridSize; x++) {
+              ctx.strokeRect(x * miniCellSize, y * miniCellSize, miniCellSize, miniCellSize);
+            }
+          }
+
+          // テトリミノを中央に配置するためのオフセット計算
+          const cells = getPieceCells(pieceType, 0, 0, 0);
+
+          // ミノの範囲を計算
+          const minX = Math.min(...cells.map(c => c.x));
+          const maxX = Math.max(...cells.map(c => c.x));
+          const minY = Math.min(...cells.map(c => c.y));
+          const maxY = Math.max(...cells.map(c => c.y));
+
+          const pieceWidth = maxX - minX + 1;
+          const pieceHeight = maxY - minY + 1;
+
+          // 中央配置のオフセット
+          const offsetX = Math.floor((gridSize - pieceWidth) / 2) - minX;
+          const offsetY = Math.floor((gridSize - pieceHeight) / 2) - minY;
+
+          // テトリミノの色を決定
+          const colorMap: Record<PieceType, string> = {
+            I: "#0ff",
+            O: "#ff0",
+            T: "#a0f",
+            S: "#0f0",
+            Z: "#f00",
+            J: "#00f",
+            L: "#fa0"
+          };
+          const color = colorMap[pieceType];
+
+          // テトリミノを描画
+          for (const cell of cells) {
+            const drawX = cell.x + offsetX;
+            const drawY = cell.y + offsetY;
+
+            if (drawX >= 0 && drawX < gridSize && drawY >= 0 && drawY < gridSize) {
+              ctx.fillStyle = color;
+              ctx.fillRect(
+                drawX * miniCellSize + 1,
+                drawY * miniCellSize + 1,
+                miniCellSize - 2,
+                miniCellSize - 2
+              );
+            }
+          }
+        }}
       />
-      <div style={{ marginTop: "8px", fontSize: 12, color: "#ccc" }}>
-        <div>操作:</div>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", gap: "16px" }}>
+      <div>
+        <canvas
+          ref={canvasRef}
+          style={{
+            border: "2px solid #666",
+            backgroundColor: "#000"
+          }}
+          width={width}
+          height={height}
+        />
+        <div style={{ marginTop: "8px", fontSize: 12, color: "#ccc" }}>
+          <div>操作:</div>
+          <div>
+            ← → = 水平移動（長押しでDAS {DAS_MS}ms → ARR {ARR_MS}ms 間隔で連続移動）
+          </div>
+          <div>
+            ↓ = ソフトドロップ（重力の約 {SOFT_DROP_MULTIPLIER} 倍の速度）
+          </div>
+          <div>
+            Z = 左回転 / X or ↑ = 右回転 / Space = ハードドロップ（即ロック＋T-Spin判定）
+          </div>
+          <div>C = Hold（1手につき1回）</div>
+          <div>
+            接地後 {LOCK_DELAY_MS}ms でロック / 接地中の移動・回転・SDで最大{" "}
+            {LOCK_RESETS_MAX} 回までロック遅延リセット
+          </div>
+          <div>HOLD: {holdPiece ?? "-"}</div>
+          <div>
+            直近消去ライン数: {state.lastClearedLines} / 累計消去行数:{" "}
+            {state.totalClearedLines}
+          </div>
+          <div>
+            5分KPI: {state.kpi.windowScore} / 総KPI: {state.kpi.totalScore}
+          </div>
+          <div>
+            AI:{" "}
+            {state.aiMove
+              ? `piece=${state.aiMove.pieceType} x=${state.aiMove.x}, y=${state.aiMove.y}, rot=${state.aiMove.rotation}, hold=${state.aiMove.useHold ? "Yes" : "No"} (${state.aiElapsedMs.toFixed(
+                  2
+                )}ms)`
+              : "（候補なし）"}
+          </div>
+          <div>
+            AI Search Config: depth={DEFAULT_AI_SEARCH_CONFIG.maxDepth}, beamWidth={DEFAULT_AI_SEARCH_CONFIG.beamWidth}, timeLimit={DEFAULT_AI_SEARCH_CONFIG.timeLimitMsPerMove}ms
+          </div>
+          <div>
+            AI Search Stats: explored=
+            {state.aiDebug ? state.aiDebug.exploredStates : 0}, depth=
+            {state.aiDebug ? state.aiDebug.depthReached : 0}
+          </div>
+          <div>
+            AI Top Root Moves:{" "}
+            {state.aiDebug && state.aiDebug.rootCandidatesSample.length > 0
+              ? state.aiDebug.rootCandidatesSample
+                  .slice(0, 3)
+                  .map((c) =>
+                    `${c.pieceType}${c.useHold ? "(H)" : ""}@x${c.x},r${c.rotation},s${c.score.toFixed(
+                      1
+                    )}`
+                  )
+                  .join(" | ")
+              : "n/a"}
+          </div>
+          <div>GAME OVER 中に Space でリスタート</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <div>
-          ← → = 水平移動（長押しでDAS {DAS_MS}ms → ARR {ARR_MS}ms 間隔で連続移動）
+          <div style={{ fontSize: 14, fontWeight: "bold", color: "#ccc", marginBottom: "8px" }}>
+            NEXT
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {nextPieces.map((piece, index) => renderNextPiece(piece, index))}
+          </div>
         </div>
-        <div>
-          ↓ = ソフトドロップ（重力の約 {SOFT_DROP_MULTIPLIER} 倍の速度）
-        </div>
-        <div>
-          Z = 左回転 / X or ↑ = 右回転 / Space = ハードドロップ（即ロック＋T-Spin判定）
-        </div>
-        <div>C = Hold（1手につき1回）</div>
-        <div>
-          接地後 {LOCK_DELAY_MS}ms でロック / 接地中の移動・回転・SDで最大{" "}
-          {LOCK_RESETS_MAX} 回までロック遅延リセット
-        </div>
-        <div>HOLD: {holdPiece ?? "-"}</div>
-        <div>
-          NEXT:{" "}
-          {nextPieces.length > 0 ? nextPieces.join(" ") : "-"}
-        </div>
-        <div>
-          直近消去ライン数: {state.lastClearedLines} / 累計消去行数:{" "}
-          {state.totalClearedLines}
-        </div>
-        <div>
-          5分KPI: {state.kpi.windowScore} / 総KPI: {state.kpi.totalScore}
-        </div>
-                <div>
-          AI:{" "}
-          {state.aiMove
-            ? `piece=${state.aiMove.pieceType} x=${state.aiMove.x}, y=${state.aiMove.y}, rot=${state.aiMove.rotation}, hold=${state.aiMove.useHold ? "Yes" : "No"} (${state.aiElapsedMs.toFixed(
-                2
-              )}ms)`
-            : "（候補なし）"}
-        </div>
-        <div>
-          AI Search Config: depth={DEFAULT_AI_SEARCH_CONFIG.maxDepth}, beamWidth={DEFAULT_AI_SEARCH_CONFIG.beamWidth}, timeLimit={DEFAULT_AI_SEARCH_CONFIG.timeLimitMsPerMove}ms
-        </div>
-        <div>
-          AI Search Stats: explored=
-          {state.aiDebug ? state.aiDebug.exploredStates : 0}, depth=
-          {state.aiDebug ? state.aiDebug.depthReached : 0}
-        </div>
-        <div>
-          AI Top Root Moves:{" "}
-          {state.aiDebug && state.aiDebug.rootCandidatesSample.length > 0
-            ? state.aiDebug.rootCandidatesSample
-                .slice(0, 3)
-                .map((c) =>
-                  `${c.pieceType}${c.useHold ? "(H)" : ""}@x${c.x},r${c.rotation},s${c.score.toFixed(
-                    1
-                  )}`
-                )
-                .join(" | ")
-            : "n/a"}
-        </div>
-        <div>GAME OVER 中に Space でリスタート</div>
       </div>
     </div>
   );
