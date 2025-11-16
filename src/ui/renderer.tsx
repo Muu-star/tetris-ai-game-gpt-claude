@@ -438,9 +438,22 @@ function tickGameState(
   return nextState;
 }
 
+// ピースタイプごとの色定義
+const PIECE_COLORS: Record<PieceType, string> = {
+  I: "#0ff", // シアン
+  O: "#ff0", // 黄色
+  T: "#a0f", // 紫
+  S: "#0f0", // 緑
+  Z: "#f00", // 赤
+  J: "#00f", // 青
+  L: "#fa0"  // オレンジ
+};
+
 export const TetrisRenderer: React.FC = () => {
   const [state, setState] = useState<GameState>(() => createInitialGameState());
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const holdCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const nextCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // 入力状態（キー押しっぱなし）
   const inputRef = useRef<InputSnapshot>({
@@ -531,8 +544,9 @@ export const TetrisRenderer: React.FC = () => {
         active.x,
         active.y
       );
+      const color = PIECE_COLORS[active.type];
       for (const c of cells) {
-        drawCell(c.x, c.y, "#fa0");
+        drawCell(c.x, c.y, color);
       }
     }
 
@@ -549,6 +563,198 @@ export const TetrisRenderer: React.FC = () => {
       ctx.fillText("Space でリスタート", width / 2, height / 2 + 24);
     }
   }, [state]);
+
+  // ---------- HOLDピースの描画 ----------
+  useEffect(() => {
+    const canvas = holdCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const holdPiece = state.pieceQueue.hold;
+    const previewCellSize = 16;
+    const previewPadding = 8;
+    const previewWidth = 80;
+    const previewHeight = 80;
+
+    canvas.width = previewWidth;
+    canvas.height = previewHeight;
+
+    // 背景クリア
+    ctx.clearRect(0, 0, previewWidth, previewHeight);
+
+    // 背景
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, previewWidth, previewHeight);
+
+    // "HOLD" ラベル
+    ctx.fillStyle = "#ccc";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("HOLD", previewPadding, previewPadding);
+
+    if (holdPiece) {
+      const cells = getPieceCells(holdPiece, 0, 0, 0); // 回転0で表示
+
+      // ピースの境界を計算
+      let minX = Math.min(...cells.map(c => c.x));
+      let minY = Math.min(...cells.map(c => c.y));
+      let maxX = Math.max(...cells.map(c => c.x));
+      let maxY = Math.max(...cells.map(c => c.y));
+      const pieceWidth = (maxX - minX + 1) * previewCellSize;
+      const pieceHeight = (maxY - minY + 1) * previewCellSize;
+
+      // 中央揃えのためのオフセット
+      const centerX = (previewWidth - pieceWidth) / 2;
+      const centerY = previewPadding + 20 + (previewHeight - previewPadding - 20 - pieceHeight) / 2;
+
+      // マス目のグリッド線を描画
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      const gridStartX = centerX;
+      const gridStartY = centerY;
+      const gridCols = maxX - minX + 1;
+      const gridRows = maxY - minY + 1;
+
+      // 縦線を描画
+      for (let col = 0; col <= gridCols; col++) {
+        const x = gridStartX + col * previewCellSize;
+        ctx.beginPath();
+        ctx.moveTo(x, gridStartY);
+        ctx.lineTo(x, gridStartY + gridRows * previewCellSize);
+        ctx.stroke();
+      }
+
+      // 横線を描画
+      for (let row = 0; row <= gridRows; row++) {
+        const y = gridStartY + row * previewCellSize;
+        ctx.beginPath();
+        ctx.moveTo(gridStartX, y);
+        ctx.lineTo(gridStartX + gridCols * previewCellSize, y);
+        ctx.stroke();
+      }
+
+      // 各セルを描画
+      const color = PIECE_COLORS[holdPiece];
+      for (const cell of cells) {
+        const x = centerX + (cell.x - minX) * previewCellSize;
+        const y = centerY + (cell.y - minY) * previewCellSize;
+
+        ctx.fillStyle = color;
+        ctx.fillRect(
+          x + 1,
+          y + 1,
+          previewCellSize - 2,
+          previewCellSize - 2
+        );
+      }
+    }
+  }, [state.pieceQueue.hold]);
+
+  // ---------- NEXTピースの描画 ----------
+  useEffect(() => {
+    const canvas = nextCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const nextPieces = state.pieceQueue.queue.slice(0, NEXT_PREVIEW_COUNT);
+    const previewCellSize = 16;
+    const previewPadding = 8;
+    const previewSpacing = 4;
+    const previewWidth = 80;
+    const baseHeight = nextPieces.length * (previewCellSize * 4 + previewSpacing) + previewPadding * 2;
+    const previewHeight = Math.floor(baseHeight * 0.7); // 縦方向の長さを7割に
+
+    canvas.width = previewWidth;
+    canvas.height = previewHeight;
+
+    // 背景クリア
+    ctx.clearRect(0, 0, previewWidth, previewHeight);
+
+    // 背景
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, previewWidth, previewHeight);
+
+    // "NEXT" ラベル
+    ctx.fillStyle = "#ccc";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("NEXT", previewPadding, previewPadding);
+
+    let yOffset = previewPadding + 20;
+
+    for (let i = 0; i < nextPieces.length; i++) {
+      const pieceType = nextPieces[i];
+      const cells = getPieceCells(pieceType, 0, 0, 0); // 回転0で表示
+
+      // ピースの境界を計算
+      let minX = Math.min(...cells.map(c => c.x));
+      let minY = Math.min(...cells.map(c => c.y));
+      let maxX = Math.max(...cells.map(c => c.x));
+      let maxY = Math.max(...cells.map(c => c.y));
+      const pieceWidth = (maxX - minX + 1) * previewCellSize;
+      const pieceHeight = (maxY - minY + 1) * previewCellSize;
+
+      // 中央揃えのためのオフセット
+      const centerX = (previewWidth - pieceWidth) / 2;
+
+      // マス目のグリッド線を描画
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      const gridStartX = centerX;
+      const gridStartY = yOffset;
+      const gridCols = maxX - minX + 1;
+      const gridRows = maxY - minY + 1;
+
+      // 縦線を描画
+      for (let col = 0; col <= gridCols; col++) {
+        const x = gridStartX + col * previewCellSize;
+        ctx.beginPath();
+        ctx.moveTo(x, gridStartY);
+        ctx.lineTo(x, gridStartY + gridRows * previewCellSize);
+        ctx.stroke();
+      }
+
+      // 横線を描画
+      for (let row = 0; row <= gridRows; row++) {
+        const y = gridStartY + row * previewCellSize;
+        ctx.beginPath();
+        ctx.moveTo(gridStartX, y);
+        ctx.lineTo(gridStartX + gridCols * previewCellSize, y);
+        ctx.stroke();
+      }
+
+      // 各セルを描画
+      const color = PIECE_COLORS[pieceType];
+      for (const cell of cells) {
+        const x = centerX + (cell.x - minX) * previewCellSize;
+        const y = yOffset + (cell.y - minY) * previewCellSize;
+
+        ctx.fillStyle = color;
+        ctx.fillRect(
+          x + 1,
+          y + 1,
+          previewCellSize - 2,
+          previewCellSize - 2
+        );
+      }
+
+      yOffset += pieceHeight + previewSpacing;
+
+      // テトロミノの間に区切り線を描画（最後のピース以外）
+      if (i < nextPieces.length - 1) {
+        ctx.strokeStyle = "#666";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(previewPadding, yOffset - previewSpacing / 2);
+        ctx.lineTo(previewWidth - previewPadding, yOffset - previewSpacing / 2);
+        ctx.stroke();
+      }
+    }
+  }, [state.pieceQueue.queue]);
 
   // ---------- キーボード入力（Hold/HardDrop で AI 再計算） ----------
 
@@ -841,19 +1047,40 @@ export const TetrisRenderer: React.FC = () => {
   const height = VISIBLE_ROWS * CELL_SIZE;
 
   const holdPiece = state.pieceQueue.hold;
-  const nextPieces = state.pieceQueue.queue.slice(0, NEXT_PREVIEW_COUNT);
 
   return (
     <div>
-      <canvas
-        ref={canvasRef}
-        style={{
-          border: "2px solid #666",
-          backgroundColor: "#000"
-        }}
-        width={width}
-        height={height}
-      />
+      <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+        <div>
+          <canvas
+            ref={holdCanvasRef}
+            style={{
+              border: "2px solid #666",
+              backgroundColor: "#000"
+            }}
+          />
+        </div>
+        <div>
+          <canvas
+            ref={canvasRef}
+            style={{
+              border: "2px solid #666",
+              backgroundColor: "#000"
+            }}
+            width={width}
+            height={height}
+          />
+        </div>
+        <div>
+          <canvas
+            ref={nextCanvasRef}
+            style={{
+              border: "2px solid #666",
+              backgroundColor: "#000"
+            }}
+          />
+        </div>
+      </div>
       <div style={{ marginTop: "8px", fontSize: 12, color: "#ccc" }}>
         <div>操作:</div>
         <div>
@@ -871,10 +1098,6 @@ export const TetrisRenderer: React.FC = () => {
           {LOCK_RESETS_MAX} 回までロック遅延リセット
         </div>
         <div>HOLD: {holdPiece ?? "-"}</div>
-        <div>
-          NEXT:{" "}
-          {nextPieces.length > 0 ? nextPieces.join(" ") : "-"}
-        </div>
         <div>
           直近消去ライン数: {state.lastClearedLines} / 累計消去行数:{" "}
           {state.totalClearedLines}
