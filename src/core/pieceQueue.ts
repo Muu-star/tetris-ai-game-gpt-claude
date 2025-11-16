@@ -31,7 +31,7 @@ function nextRandom(rng: RngState): { rng: RngState; value01: number } {
 
   return {
     rng: { value: x },
-    value01: x / 0xffffffff // [0,1) に正規化
+    value01: x / 0x100000000 // [0,1) に正規化
   };
 }
 
