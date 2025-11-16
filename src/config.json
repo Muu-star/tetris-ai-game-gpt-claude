@@ -1,0 +1,26 @@
+{
+  "gravityCPS": 5.0,
+  "softDropMultiplier": 20,
+  "dasMs": 133,
+  "arrMs": 10,
+  "lockDelayMs": 500,
+  "lockResetsMax": 15,
+  "nextCount": 5,
+  "lineClearDelayMs": 50,
+  "useARE": false,
+  "rngSeed": 123456789,
+  "aiBeamWidth": 160,
+  "aiMaxDepth": 3,
+  "aiTimeLimitMsPerMove": 14,
+  "preferredWellColumn": 6,
+  "ai": {
+    "aggregateHeightWeight": -0.5,
+    "holeWeight": -3.0,
+    "bumpinessWeight": -0.3,
+    "wellWeight": 0.1,
+    "openingTdBonusWeight": 8.0,
+    "tdMountainousWeight": 1.2,
+    "tdHoneyWeight": 1.0,
+    "tdStrayWeight": 0.8
+  }
+}

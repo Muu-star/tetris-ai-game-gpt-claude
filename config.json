@@ -1,0 +1,17 @@
+{
+  "gravityCPS": 5.0,
+  "softDropMultiplier": 20.0,
+  "dasMs": 133,
+  "arrMs": 10,
+  "lockDelayMs": 500,
+  "lockResetsMax": 15,
+  "lockResetTriggers": ["move", "rotate"],
+  "nextCount": 5,
+  "useARE": false,
+  "lineClearDelayMs": 50,
+  "beamWidth": 200,
+  "beamDepth": 3,
+  "timeBudgetMs": 12,
+  "aiRecalcTriggers": ["lineClear", "hold", "nextChange"],
+  "b2bCountMini": true
+}
