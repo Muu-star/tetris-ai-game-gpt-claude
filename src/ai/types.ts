@@ -68,3 +68,15 @@ export interface AiResponse {
   elapsedMs: number;
   debug?: AiSearchDebugInfo;
 }
+
+// Worker通信用のメッセージ型
+export interface AiWorkerRequest {
+  type: 'search';
+  state: AiGameState;
+  config: AiSearchConfig;
+}
+
+export interface AiWorkerResponse {
+  type: 'result';
+  result: AiResponse;
+}

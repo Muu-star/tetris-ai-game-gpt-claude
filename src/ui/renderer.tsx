@@ -28,7 +28,7 @@ import {
   holdCurrentPiece,
   type PieceQueueState
 } from "../core/pieceQueue";
-import { searchBestMoveOneStep } from "../ai/search";
+import { getAiWorker } from "../ai/workerInterface";
 import type {
   AiGameState,
   AiMoveRecommendation,
@@ -145,14 +145,15 @@ function buildAiGameStateForSearch(state: GameState): AiGameState {
   };
 }
 
-// GameState に対して AI を1回走らせ、aiMove/aiElapsedMs を更新する
-function recomputeAi(state: GameState): GameState {
+// GameState に対して AI を1回走らせ、aiMove/aiElapsedMs を更新する（非同期）
+async function recomputeAi(state: GameState): Promise<GameState> {
   if (!state.active) {
     return { ...state, aiMove: null, aiElapsedMs: 0, aiDebug: null };
   }
 
   const aiState = buildAiGameStateForSearch(state);
-  const result = searchBestMoveOneStep(aiState, DEFAULT_AI_SEARCH_CONFIG);
+  const aiWorker = getAiWorker();
+  const result = await aiWorker.search(aiState, DEFAULT_AI_SEARCH_CONFIG);
 
   return {
     ...state,
@@ -162,7 +163,8 @@ function recomputeAi(state: GameState): GameState {
   };
 }
 
-function createInitialGameState(): GameState {
+// AI計算なしの初期状態を作成（同期）
+function createInitialGameStateSync(): GameState {
   const field = createEmptyField();
 
   // 7-bag＋Hold＋Next の初期化＋最初のミノ取得
@@ -174,7 +176,7 @@ function createInitialGameState(): GameState {
   const isOnGround =
     active != null ? !canMoveDown(field, active) : false;
 
-  const baseState: GameState = {
+  return {
     field,
     active,
     gameOver,
@@ -196,11 +198,7 @@ function createInitialGameState(): GameState {
     aiMove: null,
     aiElapsedMs: 0,
     aiDebug: null
-
   };
-
-  // 初期ミノに対する AI 推奨手を計算
-  return recomputeAi(baseState);
 }
 
 // 1フレームぶんのゲーム更新（重力＋ソフトドロップ＋DAS/ARR＋ロック遅延＋ライン消去＋T-Spin＋KPI＋次ミノ）
@@ -413,8 +411,8 @@ function tickGameState(
       currentPieceType
     };
 
-    // 新しいミノが出たタイミングで AI を再計算する
-    return recomputeAi(nextState);
+    // 新しいミノが出たタイミングで AI を再計算する必要があることをマークする
+    return { ...nextState, aiMove: null }; // AI計算が必要であることを示すためにnullにする
   }
 
   // ---------- 7) ロックしなかったフレーム ----------
@@ -476,7 +474,7 @@ const PIECE_COLORS: Record<PieceType, string> = {
 };
 
 export const TetrisRenderer: React.FC = () => {
-  const [state, setState] = useState<GameState>(() => createInitialGameState());
+  const [state, setState] = useState<GameState>(() => createInitialGameStateSync());
   const [keyBindings, setKeyBindings] = useState<KeyBindings>(() => loadKeyBindings());
   const [showKeyConfig, setShowKeyConfig] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -489,6 +487,27 @@ export const TetrisRenderer: React.FC = () => {
     rightHeld: false,
     softDropHeld: false
   });
+
+  // AI計算の進行中フラグ
+  const aiComputingRef = useRef(false);
+
+  // AI計算が必要な時に自動実行
+  useEffect(() => {
+    // AI計算が必要ない、または既に計算中の場合はスキップ
+    if (!state.active || state.aiMove !== null || state.gameOver || aiComputingRef.current) {
+      return;
+    }
+
+    aiComputingRef.current = true;
+
+    recomputeAi(state).then(newState => {
+      aiComputingRef.current = false;
+      setState(newState);
+    }).catch(error => {
+      console.error('AI computation error:', error);
+      aiComputingRef.current = false;
+    });
+  }, [state.active, state.aiMove, state.currentPieceType, state.pieceQueue.hold, state.gameOver]);
 
   // ---------- 描画 ----------
 
@@ -849,7 +868,12 @@ export const TetrisRenderer: React.FC = () => {
 
         // RESTART アクションはゲームオーバー中でもプレイ中でも可能
         if (action === 'RESTART') {
-          return createInitialGameState();
+          const newState = createInitialGameStateSync();
+          // AI計算は非同期で実行
+          recomputeAi(newState).then(stateWithAi => {
+            setState(stateWithAi);
+          });
+          return newState;
         }
 
         if (prev.gameOver) {
@@ -942,8 +966,8 @@ export const TetrisRenderer: React.FC = () => {
               aiDebug: prev.aiDebug
             };
 
-            // Hold でミノが変わったので AI 再計算
-            return recomputeAi(nextState);
+            // Hold でミノが変わったので AI 再計算が必要
+            return { ...nextState, aiMove: null };
           }
           case 'HARD_DROP': {
             // ハードドロップ → 即ロック＋ライン消去＋T-Spin＋KPI → 次ミノ
@@ -1005,8 +1029,8 @@ export const TetrisRenderer: React.FC = () => {
               aiDebug: prev.aiDebug
             };
 
-            // ハードドロップで次ミノが出たので AI 再計算
-            return recomputeAi(nextState);
+            // ハードドロップで次ミノが出たので AI 再計算が必要
+            return { ...nextState, aiMove: null };
           }
           default:
             return prev;
