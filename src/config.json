@@ -21,7 +21,8 @@
     "openingTdBonusWeight": 8.0,
     "tdMountainousWeight": 1.2,
     "tdHoneyWeight": 1.0,
-    "tdStrayWeight": 0.8
+    "tdStrayWeight": 0.8,
+    "openingSoftDropWeight": -0.12
   },
   "keyBindings": {
     "MOVE_LEFT": ["ArrowLeft"],
