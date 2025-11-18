@@ -30,6 +30,7 @@ export interface GameConfig {
     tdMountainousWeight: number;
     tdHoneyWeight: number;
     tdStrayWeight: number;
+    openingSoftDropWeight?: number;
   };
 
   keyBindings?: KeyBindings;

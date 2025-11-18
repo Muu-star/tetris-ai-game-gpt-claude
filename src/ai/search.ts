@@ -50,6 +50,16 @@ function cloneField(field: Field): Field {
   return field.map((row) => row.slice());
 }
 
+function countFilledCells(field: Field): number {
+  let count = 0;
+  for (const row of field) {
+    for (const cell of row) {
+      if (cell !== null) count++;
+    }
+  }
+  return count;
+}
+
 function hashPiece(p: ActivePiece): string {
   return `${p.type}:${p.rotation}:${p.x}:${p.y}`;
 }
@@ -59,6 +69,7 @@ function hashPiece(p: ActivePiece): string {
 interface ReachablePlacement {
   piece: ActivePiece;
   lastMoveWasRotate: boolean;
+  softDropSteps: number;
 }
 
 function hashNode(node: ReachablePlacement): string {
@@ -73,11 +84,12 @@ function enumerateReachablePlacements(
 ): ReachablePlacement[] {
   const startNode: ReachablePlacement = {
     piece: start,
-    lastMoveWasRotate: false
+    lastMoveWasRotate: false,
+    softDropSteps: 0
   };
   const queue: ReachablePlacement[] = [startNode];
-  const visited = new Set<string>();
-  visited.add(hashNode(startNode));
+  const visited = new Map<string, number>();
+  visited.set(hashNode(startNode), 0);
 
   const results: ReachablePlacement[] = [];
 
@@ -102,7 +114,8 @@ function enumerateReachablePlacements(
       ) {
         neighbors.push({
           piece: moved,
-          lastMoveWasRotate: false
+          lastMoveWasRotate: false,
+          softDropSteps: current.softDropSteps
         });
       }
     }
@@ -117,7 +130,8 @@ function enumerateReachablePlacements(
       ) {
         neighbors.push({
           piece: moved,
-          lastMoveWasRotate: false
+          lastMoveWasRotate: false,
+          softDropSteps: current.softDropSteps
         });
       }
     }
@@ -132,7 +146,8 @@ function enumerateReachablePlacements(
       ) {
         neighbors.push({
           piece: moved,
-          lastMoveWasRotate: false
+          lastMoveWasRotate: false,
+          softDropSteps: current.softDropSteps + 1
         });
       }
     }
@@ -147,7 +162,8 @@ function enumerateReachablePlacements(
       ) {
         neighbors.push({
           piece: rotated,
-          lastMoveWasRotate: true
+          lastMoveWasRotate: true,
+          softDropSteps: current.softDropSteps
         });
       }
     }
@@ -162,15 +178,17 @@ function enumerateReachablePlacements(
       ) {
         neighbors.push({
           piece: rotated,
-          lastMoveWasRotate: true
+          lastMoveWasRotate: true,
+          softDropSteps: current.softDropSteps
         });
       }
     }
 
     for (const n of neighbors) {
       const key = hashNode(n);
-      if (!visited.has(key)) {
-        visited.add(key);
+      const prevSoftDrops = visited.get(key);
+      if (prevSoftDrops === undefined || n.softDropSteps < prevSoftDrops) {
+        visited.set(key, n.softDropSteps);
         queue.push(n);
       }
     }
@@ -445,6 +463,7 @@ interface AiAction {
   placement: ActivePiece;
   useHold: boolean;
   lastMoveWasRotate: boolean;
+  softDropSteps: number;
   queueStateAfterCurrent: PieceQueueState; // この手を打った時点の queueState（ロック後に spawnNextPiece する対象）
 }
 
@@ -469,6 +488,7 @@ function enumerateActionsForState(state: AiGameState): AiAction[] {
         placement: p.piece,
         useHold: false,
         lastMoveWasRotate: p.lastMoveWasRotate,
+        softDropSteps: p.softDropSteps,
         queueStateAfterCurrent: state.queueState
       });
     }
@@ -497,6 +517,7 @@ function enumerateActionsForState(state: AiGameState): AiAction[] {
           placement: p.piece,
           useHold: true,
           lastMoveWasRotate: p.lastMoveWasRotate,
+          softDropSteps: p.softDropSteps,
           queueStateAfterCurrent: holdResult.state
         });
       }
@@ -530,6 +551,7 @@ function applyMoveAndEvaluate(
   action: AiAction
 ): { nextState: AiGameState; score: number } {
   const workField = cloneField(state.field);
+  const filledBefore = countFilledCells(workField);
 
   // ロック前の KPI を控える（B2B状態含む）
   const kpiBefore = state.kpi.windowScore;
@@ -585,7 +607,21 @@ function applyMoveAndEvaluate(
   const KPI_WEIGHT = 25;   // ΔKPI をかなり重く見る
   const FIELD_WEIGHT = 1;  // 盤面安定度はタイブレーク寄り
 
-  const score = deltaKpi * KPI_WEIGHT + fieldScore * FIELD_WEIGHT;
+  let score = deltaKpi * KPI_WEIGHT + fieldScore * FIELD_WEIGHT;
+
+  // 開幕の新三種の神器（山岳2号・はちみつ砲・迷走砲）を目指す際、
+  // できるだけソフトドロップを減らした最短ルートを優先するための軽いペナルティ。
+  const anyConfig = config as any;
+  const aiCfg = (anyConfig.ai as { openingSoftDropWeight?: number }) || {};
+  const openingSoftDropWeight = aiCfg.openingSoftDropWeight ?? 0;
+  if (openingSoftDropWeight !== 0) {
+    const OPENING_BLOCK_LIMIT = 28; // 7ピース分（1バッグ）までは「開幕」扱い
+    if (filledBefore < OPENING_BLOCK_LIMIT) {
+      const openingPhase = 1 - Math.min(filledBefore / OPENING_BLOCK_LIMIT, 1);
+      const penalty = action.softDropSteps * openingPhase;
+      score += openingSoftDropWeight * penalty;
+    }
+  }
 
   return { nextState, score };
 }
