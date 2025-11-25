@@ -1,75 +1,242 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
+  color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  background-color: #1a1a1a;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  --primary-color: #4a90e2;
+  --bg-panel: rgba(30, 30, 30, 0.8);
+  --border-color: #444;
+  --text-muted: #888;
+  --highlight-color: #ffeb3b;
 }
 
 body {
   margin: 0;
   display: flex;
   place-items: center;
+  justify-content: center;
   min-width: 320px;
   min-height: 100vh;
+  background: radial-gradient(circle at center, #2a2a2a 0%, #111 100%);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
-button {
+/* Game Layout */
+.game-layout {
+  display: grid;
+  grid-template-areas:
+    "hold board next"
+    "score board controls"
+    "ai board controls";
+  grid-template-columns: 180px auto 180px;
+  grid-template-rows: auto auto 1fr;
+  gap: 16px;
+  padding: 32px;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 24px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  max-width: 1400px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.board-slot {
+  grid-area: board;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hold-slot {
+  grid-area: hold;
+}
+
+.next-slot {
+  grid-area: next;
+}
+
+.score-slot {
+  grid-area: score;
+}
+
+.controls-slot {
+  grid-area: controls;
+}
+
+.ai-info-slot {
+  grid-area: ai;
+}
+
+/* Mobile Responsive */
+@media (max-width: 900px) {
+  .game-layout {
+    grid-template-areas:
+      "hold next"
+      "board board"
+      "score controls"
+      "ai ai";
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+}
+
+/* Canvas Styling */
+canvas {
+  display: block;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-canvas {
+  width: 100%;
+  height: auto;
+  background-color: #000;
+  border: 1px solid var(--border-color);
+}
+
+/* Panels */
+.hold-next-panel,
+.score-board,
+.ai-info-panel,
+.controls-guide {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  padding: 16px;
+}
+
+.panel-title,
+h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+/* Score Board */
+.score-section {
+  margin-bottom: 16px;
+}
+
+.score-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+}
+
+.score-value.highlight {
+  color: var(--highlight-color);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* AI Info */
+.ai-stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.ai-recommendation,
+.ai-candidates {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.rec-details {
+  font-size: 12px;
+  color: var(--primary-color);
+}
+
+.candidates-list {
+  font-size: 11px;
+}
+
+.candidate-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+/* Controls Guide */
+.controls-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  font-size: 13px;
+}
+
+.controls-list li {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.controls-list span {
+  font-weight: bold;
+  color: #ccc;
+}
+
+.config-button {
+  width: 100%;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: background-color 0.2s;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.config-button:hover {
+  background-color: #357abd;
 }
 
-/* キーコンフィグUI用スタイル */
-.key-config-overlay {
-  position: fixed;
+/* Status Overlay */
+.status-overlay {
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -78,7 +245,58 @@ button:focus-visible {
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 10;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.status-content {
+  text-align: center;
+  color: white;
+}
+
+.status-title {
+  font-size: 32px;
+  margin: 0 0 16px 0;
+  color: #ff4444;
+  text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+}
+
+.status-message {
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.restart-button {
+  background-color: transparent;
+  border: 2px solid white;
+  color: white;
+  padding: 10px 30px;
+  font-size: 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.restart-button:hover {
+  background-color: white;
+  color: black;
+}
+
+/* Key Config UI */
+.key-config-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(5px);
 }
 
 .key-config-modal {
@@ -91,6 +309,7 @@ button:focus-visible {
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   color: #ffffff;
+  border: 1px solid #444;
 }
 
 .key-config-header {
@@ -99,48 +318,15 @@ button:focus-visible {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #444;
-}
-
-.key-config-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: #ffffff;
+  border-bottom: 1px solid #444;
 }
 
 .close-button {
   background: none;
   border: none;
   color: #888;
-  font-size: 28px;
+  font-size: 24px;
   cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.close-button:hover {
-  background-color: #444;
-  color: #fff;
-}
-
-.conflict-warning {
-  background-color: #ff6b6b;
-  color: white;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  text-align: center;
-}
-
-.key-config-content {
-  margin-bottom: 20px;
 }
 
 .key-config-row {
@@ -151,200 +337,63 @@ button:focus-visible {
   border-bottom: 1px solid #333;
 }
 
-.action-label {
-  font-weight: 500;
-  min-width: 140px;
-  color: #ddd;
-  font-size: 15px;
-}
-
-.key-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.key-button-group {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
 .key-button {
   background-color: #3a3a3a;
   color: #fff;
-  border: 2px solid #555;
-  padding: 8px 16px;
-  border-radius: 6px;
+  border: 1px solid #555;
+  padding: 6px 12px;
+  border-radius: 4px;
   min-width: 80px;
-  font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s;
   font-family: 'Courier New', monospace;
 }
 
 .key-button:hover {
   background-color: #4a4a4a;
-  border-color: #666;
 }
 
 .key-button.capturing {
-  background-color: #4a90e2;
-  border-color: #5aa3f0;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
   animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.6;
   }
 }
 
-.remove-key-button {
-  background-color: #ff4444;
-  color: white;
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: all 0.2s;
-}
-
-.remove-key-button:hover {
-  background-color: #ff6666;
-}
-
-.add-key-button {
-  background-color: #4caf50;
-  color: white;
-  border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: all 0.2s;
-}
-
-.add-key-button:hover {
-  background-color: #66bb6a;
-}
-
 .key-config-footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  margin-top: 24px;
   padding-top: 16px;
-  border-top: 2px solid #444;
-}
-
-.reset-button {
-  background-color: #ff9800;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.reset-button:hover {
-  background-color: #ffa726;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.cancel-button {
-  background-color: #666;
-  color: white;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cancel-button:hover {
-  background-color: #777;
+  border-top: 1px solid #444;
 }
 
 .save-button {
-  background-color: #4a90e2;
+  background-color: var(--primary-color);
   color: white;
   border: none;
-  padding: 10px 24px;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 8px 24px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.save-button:hover {
-  background-color: #5aa3f0;
-}
-
-@media (prefers-color-scheme: light) {
-  .key-config-modal {
-    background-color: #f5f5f5;
-    color: #333;
-  }
-
-  .key-config-header {
-    border-bottom-color: #ddd;
-  }
-
-  .key-config-header h2 {
-    color: #333;
-  }
-
-  .close-button {
-    color: #666;
-  }
-
-  .close-button:hover {
-    background-color: #e0e0e0;
-    color: #333;
-  }
-
-  .key-config-row {
-    border-bottom-color: #ddd;
-  }
-
-  .action-label {
-    color: #333;
-  }
-
-  .key-button {
-    background-color: #fff;
-    color: #333;
-    border-color: #ccc;
-  }
-
-  .key-button:hover {
-    background-color: #f0f0f0;
-    border-color: #bbb;
-  }
-
-  .key-config-footer {
-    border-top-color: #ddd;
-  }
+.cancel-button,
+.reset-button {
+  background-color: #444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 8px;
 }
